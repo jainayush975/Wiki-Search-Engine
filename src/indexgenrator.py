@@ -18,34 +18,93 @@ def dict_to_string(doc_dict):
         for key in doc_dict:
             fl.write(str(key) + doc_dict[key] + "\n")
 
-def update_page(page_dict, title_dict, doc_dict, page_id):
+def update_page(page_dict, doc_dict, page_id):
+    bt=""
+    tt=""
+    el=""
+    ct=""
+    rf=""
     for key in page_dict:
-        if key not in title_dict:
-            tl=""
-        else:
-            tl = "t" + str(title_dict[key])
-            title_dict.pop(key)
-        if key not in doc_dict:
-            doc_dict[key] = "," + str(page_id) + "b" + str(page_dict[key]) + tl
-        else:
-            doc_dict[key] = doc_dict[key] + "," + str(page_id) + "b" + str(page_dict[key]) + tl
-    for key in title_dict:
-        if key not in doc_dict:
-            doc_dict[key] = "," + str(page_id) + "t" + str(title_dict[key])
-        else:
-            doc_dict[key] = doc_dict[key] + "," + str(page_id) + "t" + str(title_dict[key])
+        if page_dict[key][0] != 0:
+            bt = "b" + str(page_dict[key][0])
+        if page_dict[key][1] != 0:
+            tt = "t" + str(page_dict[key][1])
+        if page_dict[key][2] != 0:
+            el = "l" + str(page_dict[key][2])
+        if page_dict[key][3] != 0:
+            ct = "c" + str(page_dict[key][3])
+        if page_dict[key][4] != 0:
+            rf = "r" + str(page_dict[key][4])
 
-def title_in_a_page(title, title_dict):
+
+        if key not in doc_dict:
+            doc_dict[key] = "," + str(page_id) + bt + tt + el
+        else:
+            doc_dict[key] = doc_dict[key] + "," + str(page_id) + bt + tt + el
+
+def find_references(txt, page_dict):
+    if txt is not None:
+        lines = txt.split("== References ==")
+        if len(lines)>1:
+            lines = lines[1].split('\n')
+            for line in lines:
+                if line == "":
+                    break
+                words = re.split(r'[^A-Za-z]+', line)
+                for word in words:
+                    if word is not None and word != 'Category' and word != "" and word not in ["Reflist", "colwidth", "em", "ref" ,"refs"]:
+                        word = word.lower()
+                        word = stem(word)
+                        if word not in page_dict:
+                            page_dict[word] = [0,0,0,0,1]
+                        else:
+                            page_dict[word][4] += 1
+
+
+
+
+def find_category(txt, page_dict):
+    if txt is not None:
+        lines = txt.split('\n')
+        for line in lines:
+            if '[[Category:' in  line:
+                words = re.split(r'[^A-Za-z]+', line)
+                for word in words:
+                    if word is not None and word != 'Category' and word != "":
+                        word = word.lower()
+                        word = stem(word)
+                        if word not in page_dict:
+                            page_dict[word] = [0,0,0,1,0]
+                        else:
+                            page_dict[word][3] += 1
+
+def external_link(txt, page_dict):
+    if txt is not None:
+        lines = txt.split("==External links==")
+        if len(lines)>1:
+            lines = lines[1].split('\n')
+            for line in lines:
+                if "* [" in line or "*[" in line:
+                    words = re.split(r'[^A-Za-z]+', line)
+                    for word in words:
+                        if word is not None and 'http' not in word and word not in stopwords:
+                            word = stem(word)
+                            if word not in page_dict:
+                                page_dict[word] = [0,0,1,0,0]
+                            else:
+                                page_dict[word][2] += 1
+
+def title_in_a_page(title, page_dict):
     if title is not None:
         title = re.split(r"[^A-Za-z]+", title);
         for word in title:
             word = word.lower()
             if word not in stopwords:
                 word = stem(word)
-                if word not in title_dict:
-                    title_dict[word]=1
+                if word not in page_dict:
+                    page_dict[word] = [0,1,0,0,0]
                 else:
-                    title_dict[word]+=1
+                    page_dict[word][1] += 1
 
 def make_for_page(txt, page_dict):
     if txt is not None:
@@ -56,9 +115,9 @@ def make_for_page(txt, page_dict):
             if word not in stopwords:
                 word = stem(word)
                 if word not in page_dict:
-                    page_dict[word] = 1
+                    page_dict[word] = [1,0,0,0,0]
                 else:
-                    page_dict[word] += 1
+                    page_dict[word][0] += 1
 
 def strip_tag_name(t):
     t = element.tag
@@ -73,8 +132,6 @@ totalCount = 0
 in_revision = False
 page_dict = {}
 doc_dict = {}
-title_dict = {}
-
 
 for event, element in etree.iterparse(path, events=('start', 'end')):
     tname = strip_tag_name(element.tag)
@@ -84,25 +141,26 @@ for event, element in etree.iterparse(path, events=('start', 'end')):
             main_text=""
             title=""
         elif tname == "id":
-            if not in_revision:
-                if element.text is not None:
-                    page_id=int(element.text);
+            if not in_revision and element.text is not None:
+                page_id=int(element.text);
         elif tname == "revision":
             in_revision = True
         elif tname == "redirect":
             if bool(element.attrib):
                 title = element.attrib['title']
-                title_in_a_page(title, title_dict)
+                title_in_a_page(title, page_dict)
     else:
         if tname == "revision":
             in_revision = False
         elif tname == "text":
             main_text = element.text
+            find_references(main_text, page_dict)
+            find_category(main_text, page_dict)
+            external_link(main_text, page_dict)
             make_for_page(main_text, page_dict)
         elif tname == "page":
-            update_page(page_dict, title_dict, doc_dict, page_id)
+            update_page(page_dict, doc_dict, page_id)
             page_dict.clear()
-            title_dict.clear()
     element.clear()
 
 dict_to_string(doc_dict)

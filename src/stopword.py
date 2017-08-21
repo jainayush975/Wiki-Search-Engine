@@ -39,7 +39,8 @@ True, 'elsewhere': True, "i've": True, 'becoming': True, 'amongst': True, 'someh
 'sometime': True, 'at': True, 'fill': True, 'again': True, 'hasnt': True, 'no': True, 'whereas': True, 'when': True, 'detail': True, 'other': True,
 'you': True, "let's": True, "she's": True, "he's": True, 'together': True, 'serious': True, 'having': True, 'once': True,'ref': True,'title': True,
 'www': True,'url': True,'cite': True, 'publisher': True,'category': True,'accessdate': True,'author': True,'thumb': True,'nbsp': True,'name': True,
-'html': True,'redirect': True,'http':True,'web':True,'the':True,'camelcase':True,'':True}
+'html': True,'redirect': True,'http':True,'web':True,'the':True,'camelcase':True,'':True,'jpg':True,'table':True,'references':True,'notes':True,
+'links':True,'infobox':True,'span':True,'reflist':True,'colwidth':True,'ed':True}
 """
 stpwrd = {}
 with open("stopwords.txt", "r") as fl:
