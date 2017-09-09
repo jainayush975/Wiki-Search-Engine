@@ -8,13 +8,15 @@ from stopword import stopwords
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-PATH = "./../"
-FILENAME = "wiki-search-small.xml"
+if len(sys.argv)!=3:
+	print "Incorrect Format"
+PATH = "./"
+FILENAME = sys.argv[1]
 
 # Used to strip the namespace from the tags.
 
 def dict_to_string(doc_dict):
-    with open("output.txt", "a+") as fl:
+    with open(sys.argv[2], "w") as fl:
         for key in doc_dict:
             fl.write(str(key) + doc_dict[key] + "\n")
 
@@ -38,9 +40,9 @@ def update_page(page_dict, doc_dict, page_id):
 
 
         if key not in doc_dict:
-            doc_dict[key] = "," + str(page_id) + bt + tt + el
+            doc_dict[key] = "," + str(page_id) + bt + tt + el + ct
         else:
-            doc_dict[key] = doc_dict[key] + "," + str(page_id) + bt + tt + el
+            doc_dict[key] = doc_dict[key] + "," + str(page_id) + bt + tt + el + ct
 
 def find_references(txt, page_dict):
     if txt is not None:
@@ -133,7 +135,7 @@ in_revision = False
 page_dict = {}
 doc_dict = {}
 
-for event, element in etree.iterparse(path, events=('start', 'end')):
+for event, element in etree.iterparse(FILENAME, events=('start', 'end')):
     tname = strip_tag_name(element.tag)
 
     if event == "start":
@@ -155,6 +157,7 @@ for event, element in etree.iterparse(path, events=('start', 'end')):
         elif tname == "text":
             main_text = element.text
             find_references(main_text, page_dict)
+            #if page_id < 100:
             find_category(main_text, page_dict)
             external_link(main_text, page_dict)
             make_for_page(main_text, page_dict)
