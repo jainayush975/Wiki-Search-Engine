@@ -3,130 +3,41 @@ import codecs
 import re
 import xml.etree.ElementTree as etree
 import sys
-from stemming.porter import stem
-from stopword import stopwords
+from parser import strip_tag_name, make_for_page, external_link, title_in_a_page, find_category, find_references
+from merge import merge_chunks
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
 if len(sys.argv)!=3:
+	print len(sys.argv)
 	print "Incorrect Format"
+	exit()
+
 PATH = "./"
 FILENAME = sys.argv[1]
 
-# Used to strip the namespace from the tags.
-
-def dict_to_string(doc_dict):
-    with open(sys.argv[2], "w") as fl:
-        for key in doc_dict:
-            fl.write(str(key) + doc_dict[key] + "\n")
+def write_to_chunk(doc_dict, file_name):
+	with open(file_name, "w") as fl:
+		for key in sorted(doc_dict):
+			fl.write(str(key) + doc_dict[key] + "\n")
 
 def update_page(page_dict, doc_dict, page_id):
-    bt=""
-    tt=""
-    el=""
-    ct=""
-    rf=""
-    for key in page_dict:
-        if page_dict[key][0] != 0:
-            bt = "b" + str(page_dict[key][0])
-        if page_dict[key][1] != 0:
-            tt = "t" + str(page_dict[key][1])
-        if page_dict[key][2] != 0:
-            el = "l" + str(page_dict[key][2])
-        if page_dict[key][3] != 0:
-            ct = "c" + str(page_dict[key][3])
-        if page_dict[key][4] != 0:
-            rf = "r" + str(page_dict[key][4])
-
-
-        if key not in doc_dict:
-            doc_dict[key] = "," + str(page_id) + bt + tt + el + ct
-        else:
-            doc_dict[key] = doc_dict[key] + "," + str(page_id) + bt + tt + el + ct
-
-def find_references(txt, page_dict):
-    if txt is not None:
-        lines = txt.split("== References ==")
-        if len(lines)>1:
-            lines = lines[1].split('\n')
-            for line in lines:
-                if line == "":
-                    break
-                words = re.split(r'[^A-Za-z]+', line)
-                for word in words:
-                    if word is not None and word != 'Category' and word != "" and word not in ["Reflist", "colwidth", "em", "ref" ,"refs"]:
-                        word = word.lower()
-                        word = stem(word)
-                        if word not in page_dict:
-                            page_dict[word] = [0,0,0,0,1]
-                        else:
-                            page_dict[word][4] += 1
-
-
-
-
-def find_category(txt, page_dict):
-    if txt is not None:
-        lines = txt.split('\n')
-        for line in lines:
-            if '[[Category:' in  line:
-                words = re.split(r'[^A-Za-z]+', line)
-                for word in words:
-                    if word is not None and word != 'Category' and word != "":
-                        word = word.lower()
-                        word = stem(word)
-                        if word not in page_dict:
-                            page_dict[word] = [0,0,0,1,0]
-                        else:
-                            page_dict[word][3] += 1
-
-def external_link(txt, page_dict):
-    if txt is not None:
-        lines = txt.split("==External links==")
-        if len(lines)>1:
-            lines = lines[1].split('\n')
-            for line in lines:
-                if "* [" in line or "*[" in line:
-                    words = re.split(r'[^A-Za-z]+', line)
-                    for word in words:
-                        if word is not None and 'http' not in word and word not in stopwords:
-                            word = stem(word)
-                            if word not in page_dict:
-                                page_dict[word] = [0,0,1,0,0]
-                            else:
-                                page_dict[word][2] += 1
-
-def title_in_a_page(title, page_dict):
-    if title is not None:
-        title = re.split(r"[^A-Za-z]+", title);
-        for word in title:
-            word = word.lower()
-            if word not in stopwords:
-                word = stem(word)
-                if word not in page_dict:
-                    page_dict[word] = [0,1,0,0,0]
-                else:
-                    page_dict[word][1] += 1
-
-def make_for_page(txt, page_dict):
-    if txt is not None:
-        txt = re.split(r"[^A-Za-z]+", txt);
-
-        for word in txt:
-            word = word.lower()
-            if word not in stopwords:
-                word = stem(word)
-                if word not in page_dict:
-                    page_dict[word] = [1,0,0,0,0]
-                else:
-                    page_dict[word][0] += 1
-
-def strip_tag_name(t):
-    t = element.tag
-    idx = k = t.rfind("}")
-    if idx != -1:
-        t = t[idx + 1:]
-    return t
+	bt=""; tt=""; el=""; ct="" ; rf=""
+	for key in page_dict:
+		if page_dict[key][0] != 0:
+			bt = str(page_dict[key][0]) #"b" +
+		if page_dict[key][1] != 0:
+			tt = str(page_dict[key][1]) #"t" +
+		if page_dict[key][2] != 0:
+			el = str(page_dict[key][2]) #"l" +
+		if page_dict[key][3] != 0:
+			ct = str(page_dict[key][3]) #"c" +
+		if page_dict[key][4] != 0:
+			rf = str(page_dict[key][4]) #"r" +
+		if key not in doc_dict:
+			doc_dict[key] = "," + str(page_id) + "." + bt + "." + tt + "." + el + "." + ct
+		else:
+			doc_dict[key] = doc_dict[key] + "," + str(page_id) + "." + bt + "." + tt + "." + el + "." + ct
 
 path = os.path.join(PATH, FILENAME)
 page_id = 0
@@ -134,39 +45,58 @@ totalCount = 0
 in_revision = False
 page_dict = {}
 doc_dict = {}
+chunk=0;
+length_file = open("./index/length.txt", 'w')
+lt_file = open("./index/lt.txt", "w")
+link_title=""
 
 for event, element in etree.iterparse(FILENAME, events=('start', 'end')):
-    tname = strip_tag_name(element.tag)
+	tname = strip_tag_name(element.tag)
 
-    if event == "start":
-        if tname == "page":
-            main_text=""
-            title=""
-        elif tname == "id":
-            if not in_revision and element.text is not None:
-                page_id=int(element.text);
-        elif tname == "revision":
-            in_revision = True
-        elif tname == "redirect":
-            if bool(element.attrib):
-                title = element.attrib['title']
-                title_in_a_page(title, page_dict)
-    else:
-        if tname == "revision":
-            in_revision = False
-        elif tname == "text":
-            main_text = element.text
-            find_references(main_text, page_dict)
-            #if page_id < 100:
-            find_category(main_text, page_dict)
-            external_link(main_text, page_dict)
-            make_for_page(main_text, page_dict)
-        elif tname == "page":
-            update_page(page_dict, doc_dict, page_id)
-            page_dict.clear()
-    element.clear()
+	if event == "start":
+		if tname == "page":
+			main_text=""
+			title=""
+		if tname == "title":
+			link_title=element.text
+		elif tname == "id":
+			if not in_revision and element.text is not None:
+				page_id=int(element.text);
+		elif tname == "revision":
+			in_revision = True
+		elif tname == "redirect":
+			if bool(element.attrib):
+				title = element.attrib['title']
+				title_in_a_page(title, page_dict)
+	else:
+		if tname == "revision":
+			in_revision = False
+		elif tname == "text":
+			main_text = element.text
+			find_references(main_text, page_dict)
+			find_category(main_text, page_dict)
+			external_link(main_text, page_dict)
+			make_for_page(main_text, page_dict)
+		elif tname == "page":
+			totalCount+=1
+			update_page(page_dict, doc_dict, page_id)
+			if link_title is None:
+				link_title=""
+			lt_file.write(str(page_id)+":"+link_title+"\n")
+			length_file.write(str(page_id)+":"+str(len(page_dict))+"\n")
+			page_dict.clear();
+			if(sys.getsizeof(doc_dict)>5242880):
+				write_to_chunk(doc_dict, "./chunks/chunk"+str(chunk)+".txt")
+				chunk+=1
+				doc_dict.clear()
 
-dict_to_string(doc_dict)
+	element.clear()
+
+merge_chunks(chunk, totalCount)
+
+
+
+#dict_to_string(doc_dict)
 
 #if __name__ == "__main__":
 #    main()
