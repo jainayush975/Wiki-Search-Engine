@@ -8,7 +8,7 @@ from merge import merge_chunks
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-if len(sys.argv)!=3:
+if len(sys.argv)!=2:
 	print len(sys.argv)
 	print "Incorrect Format"
 	exit()
@@ -57,6 +57,7 @@ for event, element in etree.iterparse(FILENAME, events=('start', 'end')):
 		if tname == "page":
 			main_text=""
 			title=""
+			link_title=""
 		if tname == "title":
 			link_title=element.text
 		elif tname == "id":
@@ -65,9 +66,10 @@ for event, element in etree.iterparse(FILENAME, events=('start', 'end')):
 		elif tname == "revision":
 			in_revision = True
 		elif tname == "redirect":
+			#print page_id
 			if bool(element.attrib):
 				title = element.attrib['title']
-				title_in_a_page(title, page_dict)
+				#title_in_a_page(title, page_dict)
 	else:
 		if tname == "revision":
 			in_revision = False
@@ -77,11 +79,17 @@ for event, element in etree.iterparse(FILENAME, events=('start', 'end')):
 			find_category(main_text, page_dict)
 			external_link(main_text, page_dict)
 			make_for_page(main_text, page_dict)
+
 		elif tname == "page":
 			totalCount+=1
-			update_page(page_dict, doc_dict, page_id)
 			if link_title is None:
 				link_title=""
+			if title is None:
+				title=""
+			if title+link_title != "":
+				title_in_a_page(title+" "+link_title, page_dict)
+
+			update_page(page_dict, doc_dict, page_id)
 			lt_file.write(str(page_id)+":"+link_title+"\n")
 			length_file.write(str(page_id)+":"+str(len(page_dict))+"\n")
 			page_dict.clear();
